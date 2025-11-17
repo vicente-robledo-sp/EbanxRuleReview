@@ -1,0 +1,236 @@
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import sailpoint.object.*;
+
+public String removerAccent(String str) {
+	return Normalizer.normalize(str, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
+}
+
+public String removePreposition(String str) {
+	String defaultPattern = "(\\w)(\\s+)(e|do|da|do|das|dos|de|di|du)(\\s+)(\\w)";
+	return str.replaceAll(defaultPattern, "$1 $5");
+}
+
+public String removeAgnome(String name) {
+	String[] nomeTrat = name.split(" ");
+	List agnomes = new ArrayList();
+	agnomes.add("filho");
+	agnomes.add("junior");
+	agnomes.add("neto");
+	agnomes.add("sobrinho");
+	agnomes.add("jr");
+	agnomes.add("filha");
+	agnomes.add("neta");
+
+	for(int x = 0; x &lt; nomeTrat.length; x++) {
+		if(agnomes.contains(nomeTrat[x])) {
+			name = name.replaceAll(nomeTrat[x], "");
+		}
+		if(x == nomeTrat.length) {
+			break;
+		}
+	}
+
+	return name;
+}
+
+public Boolean isUnique(String value) {
+	// AZURE AD PROD - 8df5fcb2a91a4818babe00c655ac8daa
+	// AZURE AD SANDBOX - 5199e13465ae4b79a5c8442dc989050b
+	// AD PROD - 1fd1c70630ca4887938ba36458019cd8
+	// AD SANDBOX - 2c1d2d155c904821adb572d465b5c88d
+	// GSUITE PROD - 5842d0bf4bd544a79bd093c14ab80b2a
+	// GSUITE SANDBOX - 6f2e9868e53b4837ab126003074c49ab
+
+	List SOURCE_IDS = new ArrayList(Arrays.asList(new String[] {
+		"8df5fcb2a91a4818babe00c655ac8daa",
+		"5199e13465ae4b79a5c8442dc989050b",
+		"2c1d2d155c904821adb572d465b5c88d",
+		"6f2e9868e53b4837ab126003074c49ab",
+		"1fd1c70630ca4887938ba36458019cd8",
+		"5842d0bf4bd544a79bd093c14ab80b2a"
+	}));
+
+	String PROMOTED_ATTR_NAME = "EmailAddress";
+	String SEARCH_OP = "StartsWith"; //Can also use "Equals" or "StartsWith"
+	List SEARCH_VALUES = new ArrayList(Arrays.asList(new String[] {
+		value + "@"
+	}));
+
+	int numberOfAccounts = idn.attrSearchCountAccounts(SOURCE_IDS, PROMOTED_ATTR_NAME, SEARCH_OP, SEARCH_VALUES);
+
+	if(numberOfAccounts > 0) {
+		return false;
+	} else {
+		return true;
+	}
+}
+
+public String generateUniqueEmail(String displayName, String type) throws Exception {
+	String cleanDisplayName = displayName.trim().replaceAll(" +", " ");
+	String[] arrayName = cleanDisplayName.split(" ");
+	int count = arrayName.length;
+	String firstName = arrayName[0];
+	String lastName = arrayName[count - 1];
+	String secondName = null;
+	String penultimateName = null;
+	String suggestedUserName = "";
+	String loginSmall = firstName;
+	String ext = "ext";
+	log.debug("[EBANX] arrayName.length: " + count);
+
+	if(count > 2) {
+		secondName = arrayName[1];
+	}
+
+	if(count > 2) {
+		penultimateName = arrayName[count - 2];
+	}
+
+	//name example - joao tuck silva
+	//case 1 - firstName + . + lastName i.e., joao.silva
+	log.debug("[EBANX] case 1");
+	if(type.equalsIgnoreCase("employee")) {
+		suggestedUserName = firstName + "." + lastName;
+	} else if(type.equalsIgnoreCase("contractor")) {
+		suggestedUserName = ext + "." + firstName + "." + lastName;
+	}
+	log.debug("[EBANX] case 1 - suggestedUserName: " + suggestedUserName);
+	// Limita o tamanho do login
+	if(suggestedUserName.length() &lt;= 18) {
+		loginSmall = suggestedUserName;
+	}
+
+	// Verifica se o nome sugerido atende as condicoes
+	if(suggestedUserName.length() &lt;= 20 &amp;&amp; isUnique(suggestedUserName)) {
+		return suggestedUserName;
+	}
+
+	// case 2 - firstName + . + penultimateName i.e., joao.tuck
+	log.debug("[EBANX] case 2");
+	if(count > 2) {
+		if(type.equalsIgnoreCase("employee")) {
+			suggestedUserName = firstName + "." + penultimateName;
+		} else if(type.equalsIgnoreCase("contractor")) {
+			suggestedUserName = ext + "." + firstName + "." + penultimateName;
+		}
+		log.debug("[EBANX] case 2 - suggestedUserName: " + suggestedUserName);
+		// Limita o tamanho do login
+		if(suggestedUserName.length() &lt;= 18) {
+			loginSmall = suggestedUserName;
+		}
+		// Verifica se o nome sugerido atende as condicoes
+		if(suggestedUserName.length() &lt;= 20 &amp;&amp; isUnique(suggestedUserName)) {
+			return suggestedUserName;
+		}
+	}
+
+	// case 3 - lastName + . + firstName i.e., silva.joao
+	log.debug("[EBANX] case 3");
+	if(count > 2) {
+		if(type.equalsIgnoreCase("employee")) {
+			suggestedUserName = lastName + "." + firstName;
+		} else if(type.equalsIgnoreCase("contractor")) {
+			suggestedUserName = ext + "." + lastName + "." + firstName;
+		}
+		log.debug("[EBANX] case 3 - suggestedUserName: " + suggestedUserName);
+		// Limita o tamanho do login
+		if(suggestedUserName.length() &lt;= 18) {
+			loginSmall = suggestedUserName;
+		}
+		// Verifica se o nome sugerido atende as condicoes
+		if(suggestedUserName.length() &lt;= 20 &amp;&amp; isUnique(suggestedUserName)) {
+			return suggestedUserName;
+		}
+	}
+
+	// case 4 - firstName + . + first letter middle name + . + lastName joao.t.silva
+	log.debug("[EBANX] case 4");
+	if(count > 2) {
+		if(type.equalsIgnoreCase("employee")) {
+			suggestedUserName = firstName + "." + secondName.charAt(0) + "." + lastName;
+		} else if(type.equalsIgnoreCase("contractor")) {
+			suggestedUserName = ext + "." + firstName + "." + secondName.charAt(0) + "." + lastName;
+		}
+		log.debug("[EBANX] case 4 - suggestedUserName: " + suggestedUserName);
+		// Limita o tamanho do login
+		if(suggestedUserName.length() &lt;= 18) {
+			loginSmall = suggestedUserName;
+		}
+		// Verifica se o nome sugerido atende as condicoes
+		if(suggestedUserName.length() &lt;= 20 &amp;&amp; isUnique(suggestedUserName)) {
+			return suggestedUserName;
+		}
+	}
+
+	//case 5 - firstName + . + First letter middlename + lastName i.e., joao.tsilva
+	log.debug("[EBANX] case 5");
+	if(count > 2) {
+		if(type.equalsIgnoreCase("employee")) {
+			suggestedUserName = firstName + "." + secondName.charAt(0) + lastName;
+		} else if(type.equalsIgnoreCase("contractor")) {
+			suggestedUserName = ext + "." + firstName + "." + secondName.charAt(0) + lastName;
+		}
+		log.debug("[EBANX] case 5 - suggestedUserName: " + suggestedUserName);
+		// Limita o tamanho do login
+		if(suggestedUserName.length() &lt;= 18) {
+			loginSmall = suggestedUserName;
+		}
+		// Verifica se o nome sugerido atende as condicoes
+		if(suggestedUserName.length() &lt;= 20 &amp;&amp; isUnique(suggestedUserName)) {
+			return suggestedUserName;
+		}
+	}
+
+	// case 6 - firstName + . + lastName + random number i.e., joao.silva1
+	log.debug("[EBANX] case 6");
+	String resetedLoginSmall = "";
+	for(int x = 1; x &lt; 100; x++) {
+		if(type.equalsIgnoreCase("employee")) {
+			resetedLoginSmall = firstName + "." + lastName;
+		} else if(type.equalsIgnoreCase("contractor")) {
+			resetedLoginSmall = ext + "." + firstName + "." + lastName;
+			loginSmall = ext + "." + firstName;
+		}
+
+		if(resetedLoginSmall.length() &lt;= 18) {
+			loginSmall = resetedLoginSmall;
+		}
+
+		suggestedUserName = loginSmall;
+		String suggestedUserNameCount = suggestedUserName + x;
+		log.debug("[EBANX] case 6 - suggestedUserNameCount: " + suggestedUserNameCount);
+		if(isUnique(suggestedUserNameCount)) {
+			suggestedUserName = suggestedUserNameCount;
+			break;
+		}
+	}
+
+	return suggestedUserName;
+}
+
+try {
+	//getting values from the identity
+	String displayName = identity.getStringAttribute("displayName");
+	String type = identity.getStringAttribute("type");
+
+	//cleaning and formatting the name
+	displayName = displayName.toLowerCase();
+	displayName = removeAgnome(displayName);
+	displayName = removePreposition(displayName);
+	displayName = removerAccent(displayName);
+
+	if(displayName != null) {
+		log.debug("[EBANX] Identity: " + identity.getName());
+		log.debug("[EBANX] displayName and type: " + displayName + "|" + type);
+		return generateUniqueEmail(displayName, type);
+	} else {
+		return "";
+	}
+} catch (Exception e) {
+	log.error("[EBANX] Exception: " + e.getMessage());
+	throw new Exception("Erro ao gerar o prefixo do e-mail. " + e);
+	return "";
+}
